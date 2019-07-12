@@ -107,12 +107,35 @@ class IOCounter:
         self.out_total += len(s)
         self.out_stream.flush()
 
+def human_size(sz):
+    steps = [ 
+    	{ 'pow' : pow(2,40), 'suffix': 'T' },
+    	{ 'pow' : pow(2,30), 'suffix': 'G' },
+    	{ 'pow' : pow(2,20), 'suffix': 'M' },
+    	{ 'pow' : pow(2,10), 'suffix': 'k' },
+    	{ 'pow' : pow(2,0),  'suffix': '' },
+	]
+    step = None
+    for s in steps:
+        if (sz < s['pow']):
+	    pass
+        else:
+	    step = s
+	    break
+    if (step == None):
+        ret = str(sz)
+    else:
+        ret = '%.2f%s' %( float(sz)/step['pow'], step['suffix'] )
+
+    return ret
+
 def bscp(local_filename, remote_host, remote_filename, blocksize, hashname):
     hash_total = hashlib.new(hashname)
     with open(local_filename, 'rb') as f:
         f.seek(0, 2)
         size = f.tell()
         f.seek(0)
+	hsize = human_size(size)
 
         # Calculate number of blocks, including the last block which may be smaller
         blockcount = int((size + blocksize - 1) / blocksize)
@@ -142,6 +165,8 @@ def bscp(local_filename, remote_host, remote_filename, blocksize, hashname):
             block = f.read(blocksize)
             hash_total.update(block)
             digest = hashlib.new(hashname, block).digest()
+	    print "Progress: ", human_size(position), "/", hsize, "\r", 
+	    sys.stdout.flush()
             if digest != remote_digest:
                 try:
                     io.write(struct.pack('<Q', position))
@@ -149,6 +174,7 @@ def bscp(local_filename, remote_host, remote_filename, blocksize, hashname):
                 except IOError:
                     break
         p.stdin.close()
+        print ""
 
         remote_digest_total = io.read()
         p.wait()
